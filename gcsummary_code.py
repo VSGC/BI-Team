@@ -51,7 +51,7 @@ base_view['FINTYPE']=np.where(base_view['LOAN_PURPOSE'].isin(['LAP Balance Trans
 # branch=base_view.copy()
 # branch=branch[['LAN_ID','FINTYPE','REPORTING_BRANCH']]
 # disb=disb.merge(branch,on='LAN_ID',how='left')
-## disb=disb[['FINTYPE','REPORTING_BRANCH','DISBURSEMENT_DATE', 'DISBURSEMENT_AMOUNT']]
+# disb=disb[['FINTYPE','REPORTING_BRANCH','DISBURSEMENT_DATE', 'DISBURSEMENT_AMOUNT']]
 base_view['GPLFLAG_SANCTIONS']=np.where((base_view['FINTYPE'].isin(['LP','NP'])==False) & (base_view['GPL_FLAG']=='YES') & (base_view['NBFC_FLAG']=='N') , 'GPL',np.where((base_view['FINTYPE'].isin(['LP','NP'])==False) &(base_view['GPL_FLAG']=='NO') & (base_view['NBFC_FLAG']=='N'),'NON GPL','NIL'))
 
 
