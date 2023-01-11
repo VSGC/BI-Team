@@ -38,7 +38,7 @@ lancif=lancif[['LAN_ID','SUB_CATEGORY','CUSTOMER_RESIDENTIAL_STATUS']]
 
 gfl_loan_view=pd.read_sql("SELECT * from prod_gfl_da_db.serve.loan_view WHERE DH_RECORD_ACTIVE_FLAG = 'Y'", con_dm_nbfc)
 gfl_loan_view['NBFC_FLAG'] = 'Y'
-gfl_base_view = pd.read_sql("SELECT * from prod_gfl_da_db.serve.BASE_VIEW WHERE DH_RECORD_ACTIVE_FLAG = 'Y'", con_dm_nbfc)
+gfl_base_view = pd.read_sql("SELECT distinct * from prod_gfl_da_db.serve.BASE_VIEW WHERE DH_RECORD_ACTIVE_FLAG = 'Y'", con_dm_nbfc)
 gfl_base_view['NBFC_FLAG'] = 'Y'
 gfl_disb=pd.read_sql("select * from  prod_gfl_da_db.serve.f_finance_disbursement_details WHERE DH_RECORD_ACTIVE_FLAG = 'Y';", con_dm_nbfc)
 gfl_disb['NBFC_FLAG'] = 'Y'
@@ -236,7 +236,8 @@ eomfin=eomfin[['REPORTING_BRANCH','LAN_ID',  'FINTYPE', 'LOAN_PURPOSE', 'LOAN_ST
        'LOGIN_MONTH', 'LOGIN_YEAR_MONTH', 'FS_MONTH', 'FS_YEAR_MONTH',
        'BOOKING_MONTH', 'BOOK_YEAR_MONTH','REJECT_YEAR_MONTH','IS_YEAR_MONTH','EOMRJCT','EOMCLTRL','GPLFLAG_SANCTIONS','SUB_PRODUCT','INS_FLAG']]
 eomdisb_1=disb.copy()
-
+# eomdisb_1=remove_error_lans(eomdisb_1)
+# eomfin=eomfin.drop_duplicates('LAN_ID')
 
 ###############################################################################
 '''
@@ -469,12 +470,18 @@ if duplicate_flag =='N':
     ##############################################################################
     import datetime as datetime
     from datetime import timedelta
+    import calendar 
+   
+    cal_day=datetime.datetime.now()-timedelta(1)
+    bussdate.set_index('CAL_DATE',inplace=True)
+    day=bussdate.loc[cal_day.date(),'BUSINESS_DATE']
     YTD=[]
-    cur_month=todays_date.month
+    cur_month=day.month
     if cur_month in [1,2,3]:
         for i in [1,2,3]:
-            YTD.append(i)
-            
+            if i==cur_month:
+                YTD.append(i)
+        cur_month=12
     while cur_month>=4:
         YTD.append(cur_month)
         cur_month=cur_month-1
@@ -482,19 +489,24 @@ if duplicate_flag =='N':
     if 1 in YTD:
         for i in YTD:
             if i in [1,2,3]:
-                ytd.append(str(todays_date.year)+"-"+str(i))
+                ytd.append(str(day.year)+"-"+str(i))
             else:
-                ytd.append(str(todays_date.year-1)+"-"+str(i))
+                ytd.append(str(day.year-1)+"-"+str(i))
     else:
         for i in YTD:
-            ytd.append(str(todays_date.year)+"-"+str(i))
-    MTD=[(str(todays_date.year)+"-"+str(todays_date.month))]    
-    cal_day=datetime.datetime.now()-timedelta(1)
-    bussdate.set_index('CAL_DATE',inplace=True)
-    day=bussdate.loc[cal_day.date(),'BUSINESS_DATE']
-    MTD_1=[(str(todays_date.year)+"-"+str(todays_date.month-1))]  
-    day_1=datetime.datetime(day.year,day.month-1,day.day,0,0)
+            ytd.append(str(day.year)+"-"+str(i))
+    MTD=[(str(day.year)+"-"+str(day.month))]    
+    # MTD_1=[(str(todays_date.year)+"-"+str(todays_date.month-1))]  
+    if day.month==1:
+        MTD_1=[(str(day.year-1)+"-"+str(12))]  
+        day_1=datetime.datetime(day.year-1,12,day.day,0,0)
+    else:
+        MTD_1=[(str(day.year)+"-"+str(day.month-1))] 
+        day_1=datetime.datetime(2022,11,30,0,0)
+    # day_1=datetime.datetime(day.year,day.month-1,day.day,0,0)
+    
     day=datetime.datetime(day.year,day.month,day.day,0,0,0,0)
+    
     eom,eomp=end_of(MTD,eomfin,eomdisb_1,LRD='LRD',LAP='Prime')
     eoy,eoyp=end_of(ytd,eomfin,eomdisb_1,LRD='LRD',LAP='Prime')
     eod,eodp=end_of(day,eomfin,eomdisb_1,LRD='LRD',LAP='Prime')
@@ -614,7 +626,7 @@ if duplicate_flag =='N':
         
         return df
     aum=get_aum(base_view.copy())
-    aum_targets=pd.read_excel(r"C:\Users\VAIBHAV.SRIVASTAV01\Desktop\GC_TEST\December Targets.xlsx",sheet_name='Sheet1')
+    aum_targets=pd.read_excel(r"\\GHFL-SNOWFLAKES\Users\bischeduler\Documents\Output_of_Scheduler\BI_Daily_Reports\December Targets.xlsx",sheet_name='Sheet1')
     aum_targets=aum_targets[[ 'BRANCH.1', 'TOTAL AUM', 'LAP ', 'HL']]
     aum.reset_index('REPORTING_BRANCH',inplace=True)
     aum=aum.merge(aum_targets,left_on='REPORTING_BRANCH',right_on='BRANCH.1',how='left')
@@ -1717,18 +1729,26 @@ if duplicate_flag =='N':
     
     ws['M20'] = '=E20+G20+I20+K20'
     ws['N20'] = '=F20+H20+J20+L20'
-    ws['K19'] = 387.7
+    ws['K19'] = 452.65
     ws['L19'] = 352
-    ws['K20'] = 387.7
+    ws['K20'] = 452.65
     ws['L20'] = 352
     ws2=wb['Branch Dashboard']
     ws2['T3']=day.strftime("%d-%m-%Y")
     
     ws3=wb['AUM_Product_Trend']
     
-    ws3['L16']=387.7
+    ws3['L16']=452.65
     ws3['L17']='=SUM(L5:L16)'
     wb.save("LOS_GC_SUMMARY1.xlsx")
+    eomfin.to_excel("gc_base.xlsx")
+    a=load_workbook("LOS_GC_SUMMARY1.xlsx")
+    os.makedirs('GCSUMMARY', exist_ok=True)
+    os.chdir(os.path.join(f'{current_dir}/{time.strftime("/%Y-%m-%d")}','GCSUMMARY' ))
+    a.save("LOS_GC_SUMMARY1.xlsx")
 else:
     print ("DUPLICATION ERROR")
     
+# base_view['PROD']=np.where(((base_view['FINTYPE'].isin(['LP','NP']) & (base_view['SUB_PRODUCT'].isin(['NEO LAP','NEO NRP','NEO BOOSTER LAP','LRD'])==False))),'LAP',np.where((base_view['FINTYPE'].isin(['LP','NP']) & (base_view['SUB_PRODUCT'].isin(['LRD']))),'LRD',np.where((base_view['FINTYPE'].isin(['LP','NP']) & (base_view['SUB_PRODUCT'].isin(['NEO LAP','NEO NRP','NEO BOOSTER LAP']))),'NEO-LAP','HL')))
+# base_view=base_view[['LAN_ID', 'FINANCE_SOURCE_ID', 'LOAN_STATUS', 'DETAILED_STATUS','STATUS', 'QUEUE', 'LOGIN_STATUS', 'STATUS_SEG', 'LOGIN_DATE','EOMLOGN', 'BOOKING_DATE', 'SANCTION_DATE', 'EOMSNCTN','FIRST_REJECT_DATE', 'EOMRJCT', 'REPORTING_BRANCH', 'FINANCE_TYPE','PRODUCT', 'LOAN_TYPE', 'BOOKING_AMOUNT', 'SANCTION_AMOUNT','REQUESTED_AMOUNT', 'NET_PREMIUM', 'FIRST_ENTRY_TO_COLLATERAL','EOMCLTRL','NBFC_FLAG','LOAN_PURPOSE', 'ROI', 'PRINCIPAL_OUTSTANDING', 'GPL_FLAG','SUB_PRODUCT', 'FINTYPE', 'GPLFLAG_SANCTIONS', 'INS_FLAG','SUB_CATEGORY', 'CUSTOMER_RESIDENTIAL_STATUS', 'PROD']]
+# base_view.to_excel(r"C:\Users\VAIBHAV.SRIVASTAV01\Desktop\VSCRON.xlsx")
